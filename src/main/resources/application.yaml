@@ -1,3 +1,43 @@
 spring:
   application:
     name: personal-info-service
+  # Loads .env (KEY=VALUE, gitignored — see .env.example for the required keys)
+  # the same way the frontend's `dotenv/config` does, so DATABASE_PASSWORD below
+  # doesn't have to be set as a real OS environment variable.
+  config:
+    import: optional:file:.env[.properties]
+  docker:
+    compose:
+      enabled: false
+  # NOTE: this is a pre-existing, externally-managed Postgres instance (a
+  # native Windows install on the dev machine, NOT the postgres:latest
+  # container this repo's compose.yaml provisions on port 5433). The
+  # technologies data already lived here before this service existed — see
+  # ADR-0005 in docs/decisions/architecture-decisions.md. compose.yaml's
+  # container currently has no consumer.
+  datasource:
+    url: jdbc:postgresql://localhost:5432/${DATABASE_NAME}
+    username: ${DATABASE_USER}
+    # Never commit the real value. Set the DATABASE_PASSWORD environment
+    # variable before running the app (mvnw.cmd spring-boot:run) or any
+    # test/tool that connects to this datasource directly. No default is
+    # provided on purpose - startup should fail loudly rather than silently
+    # trying an empty/wrong password.
+    password: ${DATABASE_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    # personaldb already had the real `technologies` table (created outside
+    # Flyway, no flyway_schema_history) before this service existed. On an
+    # existing, non-empty schema with no history table, Flyway baselines it
+    # at baseline-version instead of trying to (re)run V1 and failing on
+    # "relation already exists". On a genuinely empty schema (e.g. the
+    # Testcontainers-backed repository test), baselining does not trigger -
+    # V1 runs for real there, producing a faithful replica of personaldb.
+    baseline-on-migrate: true
+    baseline-version: 1

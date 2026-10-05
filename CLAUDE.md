@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-This is a freshly-scaffolded Spring Boot project (from Spring Initializr) with no application code yet — only the
-generated skeleton (`PersonalInfoServiceApplication` main class and an empty context-load test). There are no
-controllers, services, repositories, or entities. When implementing features, you are establishing the architecture,
-not following an existing pattern — check with the user on package/layering conventions if it's not obvious from a
-prior decision in the conversation.
+The first real endpoint (`GET /api/v1/technologies`) is implemented, establishing the layered pattern (entity →
+repository → service → controller → DTO, Flyway migrations, centralized `@RestControllerAdvice` error handling) to
+follow for future endpoints — see `docs/api/contracts.md` and `docs/decisions/architecture-decisions.md`. When
+implementing further features, follow this established pattern rather than inventing a new one; check with the user
+if a needed convention isn't already covered by a prior ADR.
 
 ## Commands
 
@@ -30,9 +30,18 @@ Use the Maven wrapper (`mvnw.cmd` on Windows / `./mvnw` in bash), not a global `
   the test classpath for JPA slice tests and OAuth2 client test support.
 - **Lombok** is available (annotation processor wired into both compile and test-compile in `pom.xml`).
 - **spring-boot-docker-compose** (runtime, optional) auto-starts `compose.yaml` when running the app locally via
-  Spring Boot tooling (`mvnw.cmd spring-boot:run` or an IDE run configuration) — no manual `docker compose up` needed
-  for local dev. `compose.yaml` defines a single `postgres:latest` service (db `mydatabase`, user `myuser`, password
-  `secret`, port 5432 mapped to an ephemeral host port).
+  Spring Boot tooling — mechanically still true, but **`compose.yaml`'s Postgres (`mydatabase`, port 5433) is
+  currently unused by any feature.** The real `technologies` data lives in a separate, pre-existing, externally
+  -managed native Postgres install (`localhost:5432`, db `personaldb`) that predates this service — see ADR-0005 in
+  `docs/decisions/architecture-decisions.md` for why, and revisit this discrepancy before adding more tables rather
+  than assuming `compose.yaml` reflects where data actually lives. (`spring.docker.compose.enabled` is also
+  currently `false` in `application.yaml`, so auto-start doesn't fire in practice either way.)
 - **spring-boot-devtools** (runtime, optional) is on the classpath for local dev live-restart.
-- `application.yaml` currently only sets `spring.application.name`; no datasource or security config has been added
-  yet, so JPA/security config will need to be introduced when related features are implemented.
+- `application.yaml` sets `spring.datasource.*` pointing at `personaldb` (see above). The password is
+  `${DATABASE_PASSWORD}` with no default — set that environment variable before `mvnw.cmd spring-boot:run` or any
+  test/tool that hits this datasource directly (the Testcontainers-backed repository test is unaffected and needs
+  no such setup). Never commit the real password.
+- **Flyway** (`spring-boot-starter-flyway` + `flyway-core` + `flyway-database-postgresql`) manages schema migrations
+  under `src/main/resources/db/migration`. `spring.jpa.hibernate.ddl-auto` is `validate`, not `update`.
+  `spring.flyway.baseline-on-migrate`/`baseline-version` are set because `personaldb`'s schema predates Flyway —
+  see ADR-0005.

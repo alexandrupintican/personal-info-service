@@ -1,0 +1,100 @@
+openapi: 3.0.3
+info:
+  title: Personal Project API
+  description: >
+    Machine-readable API contract for this application's backend
+    (personal-info-service, behind a planned API Gateway — see
+    docs/architecture/README.md and ADR-0002). Owned/updated by
+    java-springboot-specialist as endpoints are implemented; consumed by
+    vue3-typescript-specialist to generate TypeScript types and an API
+    client. This file is mirrored between the personal-project-vue3 and
+    personal-info-service repos — keep both copies in sync. Must stay in
+    sync with docs/api/contracts.md and with actual deployed behavior —
+    never let this drift into aspirational.
+  version: "1.0.0"
+servers:
+  - url: /api/v1
+    description: >
+      Versioned API root. The frontend is repointed to this endpoint (from
+      the temporary Hono placeholder, GET /api/technologies, unversioned).
+paths:
+  /technologies:
+    get:
+      summary: List technologies
+      description: >
+        Returns every technology/skill shown on the "about me" page, each
+        with a self-rated confidence level. Small, bounded reference data —
+        returned as a plain array, not the paginated envelope (see
+        docs/api/contracts.md). Replaced the frontend's temporary Hono
+        placeholder (GET /api/technologies, unversioned) — the frontend is
+        repointed to this endpoint.
+      operationId: listTechnologies
+      tags: [Technologies]
+      responses:
+        "200":
+          description: Technologies ordered by category, then confidence descending.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TechnologyResponse'
+        "500":
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    TechnologyResponse:
+      type: object
+      required: [name, category, confidence]
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [stack, in_progress]
+          description: >
+            Backed by the native Postgres enum technology_category in the
+            personaldb database (see ADR-0005 in docs/decisions).
+        confidence:
+          type: integer
+          minimum: 1
+          maximum: 5
+    ErrorResponse:
+      type: object
+      required: [status, error, message, path, timestamp]
+      properties:
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        validationErrors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+  securitySchemes:
+    # Auth mechanism is NOT yet decided — personal-info-service currently
+    # uses spring-boot-starter-security-oauth2-client (OAuth2 Client), not
+    # a Resource Server issuing bearer JWTs. This scheme is a placeholder;
+    # do not apply it as a global `security:` requirement until the actual
+    # mechanism is confirmed (see docs/api/contracts.md).
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+# No global `security:` requirement yet — see components.securitySchemes note above.
